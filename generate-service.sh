@@ -28,11 +28,13 @@ git init
 # Initialize npm project with default settings
 npm init -y
 
-# Install necessary dependencies
-npm install express
-npm install typescript @types/node @types/express --save-dev
+# Install runtime dependencies
+npm install dotenv@^16.4.5 express@^4.20.0 ts-node@^10.9.2 typescript@^5.6.2 uuid@^10.0.0
 
-# Create tsconfig.json with the corrected content
+# Install development dependencies
+npm install --save-dev @types/cors@^2.8.17 @types/express@^4.17.21 @types/nodemon@^1.19.6 @types/node@^22.5.4 @types/uuid@^10.0.0 nodemon@^3.1.4
+
+# Create tsconfig.json with the specified configuration
 cat > tsconfig.json <<EOL
 {
   "compilerOptions": {
@@ -100,12 +102,20 @@ EOL
 mkdir src
 cat > src/index.ts <<EOL
 import express from 'express';
+import dotenv from 'dotenv';
+import { v4 as uuidv4 } from 'uuid';
+
+dotenv.config();
 
 const app = express();
 const port = process.env.PORT || 8080;
 
 app.get('/', (req, res) => {
   res.send('Hello, Cloud Run!');
+});
+
+app.get('/uuid', (req, res) => {
+  res.send(\`Generated UUID: \${uuidv4()}\`);
 });
 
 app.listen(port, () => {
@@ -120,27 +130,39 @@ add_scripts() {
 
   if command -v jq > /dev/null; then
     # Use jq to add scripts
-    jq '.scripts += {"build":"tsc", "start":"node dist/index.js"}' package.json > tmp.$$.json && mv tmp.$$.json package.json
+    jq '.scripts = {
+      "start": "node dist/index.js",
+      "dev": "nodemon src/index.ts",
+      "build": "rm -rf ./dist && npx tsc"
+    }' package.json > tmp.$$.json && mv tmp.$$.json package.json
   else
     # Use sed as a fallback
     if [ "$OS_TYPE" = "Darwin" ]; then
       # macOS requires a backup extension or empty string
-      sed -i '' '/"test":/a\
-        "build": "tsc",\
-        "start": "node dist/index.js",
+      sed -i '' '/"scripts": {/a\
+        "start": "node dist/index.js",\
+        "dev": "nodemon src/index.ts",\
+        "build": "rm -rf ./dist && npx tsc",\
       ' package.json
     else
       # Assume Linux for GNU sed
-      sed -i '/"test":/a \
-        "build": "tsc",\
-        "start": "node dist/index.js",
+      sed -i '/"scripts": {/a \
+        "start": "node dist/index.js", \
+        "dev": "nodemon src/index.ts", \
+        "build": "rm -rf ./dist && npx tsc", \
       ' package.json
     fi
   fi
 }
 
-# Add build and start scripts to package.json
+# Add start, dev, and build scripts to package.json
 add_scripts
+
+# Create a .env file with default variables
+cat > .env <<EOL
+PORT=8080
+# Add other environment variables below
+EOL
 
 # Create a .gitignore file
 cat > .gitignore <<EOL
@@ -149,15 +171,10 @@ dist
 .env
 EOL
 
-# Initialize TypeScript configuration
-# Note: Since we've already created tsconfig.json, this step can be skipped or ensured to match
-# Here, we skip it to avoid overwriting
-# Uncomment the next line if you want to ensure tsconfig.json is initialized
-# npx tsc --init
-
 echo "Project '$PROJECT_NAME' has been created successfully."
 echo "Next steps:"
 echo "1. Navigate to the project directory: cd $PROJECT_NAME"
 echo "2. Install dependencies if not already installed: npm install"
 echo "3. Build the project: npm run build"
 echo "4. Run the project: npm start"
+echo "5. For development with auto-reloading: npm run dev"
