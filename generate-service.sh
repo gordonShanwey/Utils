@@ -47,7 +47,6 @@ cat > tsconfig.json <<EOL
     "resolveJsonModule": true,
     "moduleDetection": "force",
     "isolatedModules": true,
-    "verbatimModuleSyntax": true,
 
     /* Strictness */
     "strict": true,
